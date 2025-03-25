@@ -31,6 +31,7 @@ except:
 try:
   # Bind the the server socket to a host and port
   # ~~~~ INSERT CODE ~~~~
+  serverSocket.bind(('', serverPort))
   # ~~~~ END CODE INSERT ~~~~
   print ('Port is bound')
 except:
