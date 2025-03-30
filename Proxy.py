@@ -176,6 +176,10 @@ while True:
       # ~~~~ INSERT CODE ~~~~
       data_from_response = b''
       originServerSocket.settimeout(1.0)
+
+      # Boolean to check if response should be cached
+      NO_CACHE = False
+
       while True:
         try:
           segment = originServerSocket.recv(BUFFER_SIZE)
@@ -183,6 +187,24 @@ while True:
           if segment == None:
             break
           data_from_response += segment
+
+          # Check if blank line is in response header, indicating end of header
+          if b'\r\n\r\n' in data_from_response:
+            header_contents = data_from_response.split(b'\r\n')
+            
+            # RFC 7234-3
+            # TODO: Fix this because I think it checks if the exact string is a match
+            if b'no-store' in header_contents: 
+              NO_CACHE = True
+            
+            status = header_contents[0].decode()
+            
+            print("STATUS OF RESPONSE: ", status)
+            if "404" in status:
+              print(f"404 Page Not Found: {status}")
+              NO_CACHE = True
+              break
+
           # TODO: messy way of dealing with infinite while loop. Fix
         except socket.timeout:
           break
@@ -205,7 +227,8 @@ while True:
 
       # Save origin server response in the cache file
       # ~~~~ INSERT CODE ~~~~
-      cacheFile.write(data_from_response)
+      if not NO_CACHE:
+        cacheFile.write(data_from_response)
       # ~~~~ END CODE INSERT ~~~~
       cacheFile.close()
       print ('cache file closed')
