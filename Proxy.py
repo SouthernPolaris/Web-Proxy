@@ -119,6 +119,8 @@ while True:
     # ProxyServer finds a cache hit
     # Send back response to client 
     # ~~~~ INSERT CODE ~~~~
+    response = ''.join(cacheData)
+    clientSocket.sendall(response.encode())
     # ~~~~ END CODE INSERT ~~~~
     cacheFile.close()
     print ('Sent to the client:')
@@ -172,13 +174,25 @@ while True:
 
       # Get the response from the origin server
       # ~~~~ INSERT CODE ~~~~
-      data = originServerSocket.recv(BUFFER_SIZE)
+      data_from_response = b''
+      originServerSocket.settimeout(1.0)
+      while True:
+        try:
+          segment = originServerSocket.recv(BUFFER_SIZE)
+          # print("Data Segment Received: ", segment)
+          if segment == None:
+            break
+          data_from_response += segment
+          # TODO: messy way of dealing with infinite while loop. Fix
+        except socket.timeout:
+          break
+      # data = originServerSocket.recv(BUFFER_SIZE)
       print("Data Received From Origin")
       # ~~~~ END CODE INSERT ~~~~
 
       # Send the response to the client
       # ~~~~ INSERT CODE ~~~~
-      clientSocket.send(data)
+      clientSocket.sendall(data_from_response)
       print("Sent Response to Client")
       # ~~~~ END CODE INSERT ~~~~
 
@@ -191,6 +205,7 @@ while True:
 
       # Save origin server response in the cache file
       # ~~~~ INSERT CODE ~~~~
+      cacheFile.write(data_from_response)
       # ~~~~ END CODE INSERT ~~~~
       cacheFile.close()
       print ('cache file closed')
