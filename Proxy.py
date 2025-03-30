@@ -236,6 +236,10 @@ while True:
                   print("NEW REQUEST: ", request)
                   originServerSocket.sendall(request.encode())
 
+                  cacheLocation = './' + hostname + resource
+                  if cacheLocation.endswith('/'):
+                    cacheLocation = cacheLocation + 'default'
+
                   data_from_response = b''
                   break
               continue
