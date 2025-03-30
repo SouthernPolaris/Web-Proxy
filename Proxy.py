@@ -184,7 +184,7 @@ while True:
         try:
           segment = originServerSocket.recv(BUFFER_SIZE)
           # print("Data Segment Received: ", segment)
-          if segment == None:
+          if not segment:
             break
           data_from_response += segment
 
@@ -193,9 +193,9 @@ while True:
             header_contents = data_from_response.split(b'\r\n')
             
             # RFC 7234-3
-            # TODO: Fix this because I think it checks if the exact string is a match
-            if b'no-store' in header_contents: 
-              NO_CACHE = True
+            for header in header_contents:
+              if header.startswith(b'no-store'):
+                NO_CACHE = True
             
             status = header_contents[0].decode()
             
@@ -204,7 +204,44 @@ while True:
               print(f"404 Page Not Found: {status}")
               NO_CACHE = True
               break
+            elif "301" in status or "302" in status:
+              for header in header_contents:
+                if header.startswith(b'Location'):
+                  redirect_uri = header.split(b': ')[1].decode()
+                  print(f"Redirecting to: {redirect_uri}")
 
+                  originServerSocket.close()
+                  originServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+                  if redirect_uri.startswith("/"):
+                    resource = redirect_uri
+                  else:
+                    URI = redirect_uri
+                    URI = re.sub('^(/?)http(s?)://', '', URI, count=1)
+                    URI = URI.replace('/..', '')
+                    resourceParts = URI.split('/', 1)
+                    hostname = resourceParts[0]
+                    resource = '/'
+
+                    if len(resourceParts) == 2:
+                      resource = resource + resourceParts[1]
+
+                  print("NEW LOCATION: ", hostname, resource)
+                  address = socket.gethostbyname(hostname)
+                  originServerSocket.connect((address, 80))
+
+                  originServerRequest = f"GET {resource} HTTP/1.1"
+                  originServerRequestHeader = f"Host: {hostname}"
+                  request = originServerRequest + '\r\n' + originServerRequestHeader + '\r\n\r\n'
+                  print("NEW REQUEST: ", request)
+                  originServerSocket.sendall(request.encode())
+
+                  data_from_response = b''
+                  break
+              continue
+            # default case (e.g. 200)
+            else:
+              break
           # TODO: messy way of dealing with infinite while loop. Fix
         except socket.timeout:
           break
