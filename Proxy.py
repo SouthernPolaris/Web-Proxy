@@ -4,6 +4,7 @@ import sys
 import os
 import argparse
 import re
+import time
 
 # 1MB buffer size
 BUFFER_SIZE = 1000000
@@ -119,6 +120,20 @@ while True:
     # ProxyServer finds a cache hit
     # Send back response to client 
     # ~~~~ INSERT CODE ~~~~
+
+    NO_CACHE = False
+    metadata_location = cacheLocation + '-metadata'
+
+    if os.path.exists(metadata_location):
+      with open(metadata_location, 'r') as metadata_file:
+        time_of_cache = float(metadata_file.readline().strip())
+        max_age = int(metadata_file.readline().strip())
+        age = time.time() - time_of_cache
+        if age > max_age:
+          print(f"MAX CACHE AGE EXCEEDED")
+          raise Exception("Expired Cache")
+        print("CACHE NOT EXPIRED")
+
     cacheData = ''.join(cacheData)
     clientSocket.sendall(cacheData.encode())
     # ~~~~ END CODE INSERT ~~~~
@@ -200,6 +215,7 @@ while True:
             max_age_check = False
             cache_control_check = False
             no_store_check = False
+            must_understand = False
 
             for header in header_contents:
               # RFC 7234-3
@@ -211,9 +227,10 @@ while True:
                 max_age_check = True
               if header.startswith(b"Cache-Control: "):
                 cache_control_check = True
-              
+              if b"must_understand" in header:
+                must_understand = True
             # MUST NOT UNLESS in RFC 7234-3
-            if (expires_check or max_age_check or cache_control_check):
+            if (expires_check or max_age_check or cache_control_check or must_understand):
               NO_CACHE = False
             if no_store_check:
               NO_CACHE = True
@@ -302,12 +319,27 @@ while True:
       # If caching is allowed (boolean set above)
       if not NO_CACHE:
         cacheFile.write(data_from_response)
+
+        max_age = 0
+        header_end = data_from_response.find(b'\r\n\r\n')
+        if header_end != -1:
+          headers = data_from_response[:header_end].split(b'\r\n')
+          for header in headers:
+            if header.startswith(b'Cache-Control') and b'max-age' in header:
+              max_age = int(header.split(b'max-age=')[1].split(b',')[0])
+              break
+
+        with open(cacheLocation + '-metadata', 'w') as metadata_file:
+          metadata_file.write(f"{time.time()}\n")
+          metadata_file.write(f"{max_age}\n")
       else:
         # Remove cache file generated as not needed
         # TODO: Also remove parent directories
         # This is being heavily limited by the fact that I can't edit code outside here
         # and not perform a filepath creation if NO_CACHE is True
         os.remove(cacheLocation)
+        if os.path.exists(cacheLocation + '-metadata'):
+          os.remove(cacheLocation + "-metadata")
       # ~~~~ END CODE INSERT ~~~~
       cacheFile.close()
       print ('cache file closed')
