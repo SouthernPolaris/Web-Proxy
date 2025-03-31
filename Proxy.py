@@ -192,9 +192,9 @@ while True:
           if b'\r\n\r\n' in data_from_response:
             header_contents = data_from_response.split(b'\r\n')
             
-            # RFC 7234-3
             for header in header_contents:
-              if header.startswith(b'no-store'):
+              # RFC 7234-3
+              if header.endswith(b'no-store'):
                 NO_CACHE = True
             
             status = header_contents[0].decode()
@@ -270,6 +270,11 @@ while True:
       # ~~~~ INSERT CODE ~~~~
       if not NO_CACHE:
         cacheFile.write(data_from_response)
+      else:
+        # TODO: Also remove parent directories
+        # This is being heavily limited by the fact that I can't edit code outside here
+        # and not perform a filepath creation if NO_CACHE is True
+        os.remove(cacheLocation)
       # ~~~~ END CODE INSERT ~~~~
       cacheFile.close()
       print ('cache file closed')
