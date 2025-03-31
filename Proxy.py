@@ -192,11 +192,28 @@ while True:
           if b'\r\n\r\n' in data_from_response:
             header_contents = data_from_response.split(b'\r\n')
             
+            expires_check = False
+            max_age_check = False
+            cache_control_check = False
+            no_store_check = False
+
             for header in header_contents:
               # RFC 7234-3
               if header.endswith(b'no-store'):
-                NO_CACHE = True
-            
+                no_store_check = True
+              if header.startswith(b'Expires: '):
+                expires_check = True
+              if b"max-age" in header or b"s-maxage" in header:
+                max_age_check = True
+              if header.startswith(b"Cache-Control: "):
+                cache_control_check = True
+              
+            # MUST NOT UNLESS in RFC 7234-3
+            if (expires_check or max_age_check or cache_control_check):
+              NO_CACHE = False
+            if no_store_check:
+              NO_CACHE = True
+
             status = header_contents[0].decode()
             
             print("STATUS OF RESPONSE: ", status)
