@@ -1,3 +1,6 @@
+# Implements Bonus-1 for Expires header. Loops through each line of response and checks
+# if Expires exists 
+
 # Include the libraries for socket and system calls
 import socket
 import sys
@@ -156,6 +159,7 @@ while True:
       address = socket.gethostbyname(hostname)
       # Connect to the origin server
       # ~~~~ INSERT CODE ~~~~
+      print("TEST")
       originServerSocket.connect((address, 80))
       # ~~~~ END CODE INSERT ~~~~
       print ('Connected to origin Server')
@@ -208,6 +212,7 @@ while True:
             header_contents = data_from_response.split(b'\r\n')
             
             # RFC Standards Check Booleans
+            expires_check = False
             max_age_check = False
             cache_control_check = False
             no_store_check = False
@@ -229,6 +234,9 @@ while True:
               # RFC 7234-3
               if header.endswith(b'no-store'):
                 no_store_check = True
+              # Bonus-1
+              if header.startswith(b'Expires: '):
+                expires_check = True
               if b"max-age" in header or b"s-maxage" in header:
                 max_age_check = True
               if header.startswith(b"Cache-Control: "):
@@ -236,7 +244,7 @@ while True:
               if b"must_understand" in header:
                 must_understand = True
             # MUST NOT UNLESS in RFC 7234-3
-            if (max_age_check or cache_control_check or must_understand) and is_cacheable_code:
+            if (expires_check or max_age_check or cache_control_check or must_understand) and is_cacheable_code:
               NO_CACHE = False
             if no_store_check:
               NO_CACHE = True
