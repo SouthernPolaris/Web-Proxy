@@ -180,10 +180,13 @@ while True:
       # Boolean to check if response should be cached
       NO_CACHE = False
 
+      # Loop to get data
       while True:
         try:
+          # Get Data in segments of length BUFFER_SIZE
           segment = originServerSocket.recv(BUFFER_SIZE)
-          # print("Data Segment Received: ", segment)
+
+          # Break out of loop if no more data
           if not segment:
             break
           data_from_response += segment
@@ -192,6 +195,7 @@ while True:
           if b'\r\n\r\n' in data_from_response:
             header_contents = data_from_response.split(b'\r\n')
             
+            # RFC Standards Check Booleans
             expires_check = False
             max_age_check = False
             cache_control_check = False
@@ -214,22 +218,28 @@ while True:
             if no_store_check:
               NO_CACHE = True
 
+            # Check status code
             status = header_contents[0].decode()
             
             print("STATUS OF RESPONSE: ", status)
+            # If status is 404 or 301/302
             if "404" in status:
               print(f"404 Page Not Found: {status}")
               NO_CACHE = True
               break
+            # If 301/302
             elif "301" in status or "302" in status:
               for header in header_contents:
+                # Find redirect location
                 if header.startswith(b'Location'):
                   redirect_uri = header.split(b': ')[1].decode()
                   print(f"Redirecting to: {redirect_uri}")
 
+                  # Close and reopen socket to origin server to new location
                   originServerSocket.close()
                   originServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+                  # Uses template code provided above to get URI, hostname and resource
                   if redirect_uri.startswith("/"):
                     resource = redirect_uri
                   else:
@@ -243,30 +253,34 @@ while True:
                     if len(resourceParts) == 2:
                       resource = resource + resourceParts[1]
 
+                  # Connect to new address
                   print("NEW LOCATION: ", hostname, resource)
                   address = socket.gethostbyname(hostname)
                   originServerSocket.connect((address, 80))
 
+                  # Create new request
                   originServerRequest = f"GET {resource} HTTP/1.1"
                   originServerRequestHeader = f"Host: {hostname}"
                   request = originServerRequest + '\r\n' + originServerRequestHeader + '\r\n\r\n'
                   print("NEW REQUEST: ", request)
+
+                  # Send redirect request
                   originServerSocket.sendall(request.encode())
 
+                  # Update cache location to redirect location
                   cacheLocation = './' + hostname + resource
                   if cacheLocation.endswith('/'):
                     cacheLocation = cacheLocation + 'default'
 
+                  # Reset data from response
                   data_from_response = b''
                   break
               continue
             # default case (e.g. 200)
             else:
               break
-          # TODO: messy way of dealing with infinite while loop. Fix
         except socket.timeout:
           break
-      # data = originServerSocket.recv(BUFFER_SIZE)
       print("Data Received From Origin")
       # ~~~~ END CODE INSERT ~~~~
 
@@ -285,9 +299,11 @@ while True:
 
       # Save origin server response in the cache file
       # ~~~~ INSERT CODE ~~~~
+      # If caching is allowed (boolean set above)
       if not NO_CACHE:
         cacheFile.write(data_from_response)
       else:
+        # Remove cache file generated as not needed
         # TODO: Also remove parent directories
         # This is being heavily limited by the fact that I can't edit code outside here
         # and not perform a filepath creation if NO_CACHE is True
